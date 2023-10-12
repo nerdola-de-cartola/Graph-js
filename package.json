@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "@types/node": "^20.8.0",
+    "typescript": "^5.2.2"
+  },
+  "scripts": {
+    "build": "npx tsc",
+    "start": "node build/graph.js"
+  }
+}

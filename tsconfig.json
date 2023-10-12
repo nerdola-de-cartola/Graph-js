@@ -1,0 +1,7 @@
+// ts-ignore
+{
+  "include": ["src"],
+  "compilerOptions": {
+    "outDir": "./build"
+  }
+}
