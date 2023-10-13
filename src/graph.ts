@@ -6,13 +6,14 @@ interface Graph {
 
 enum Colors {
     blue = "\x1b[36m",
-    red = "\x1b[31m"
+    red = "\x1b[31m",
+    standard = "\x1b[0m"
 }
 
 interface Vertex {
     name: string
     edges: Edge[]
-    color?: Colors
+    color: Colors
 }
 
 interface Edge {
@@ -20,25 +21,33 @@ interface Edge {
     weight: number;
 }
 
-const resetColor = "\x1b[0m";
-
 function createGraph(): Graph {
     return {
         vertices: []
     }
 }
 
-function addVertex(graph: Graph, vertex: string) {
+function addVertex(graph: Graph, vertexName: string): boolean {
+    if (graph.vertices.some((vertex) =>
+        vertex.name === vertexName
+    )) {
+        return false;
+    }
+
     graph.vertices.push({
-        name: vertex,
+        name: vertexName,
+        color: Colors.standard,
         edges: []
     })
+
+    return true;
 }
 
-function addVertices(graph: Graph, vertices: string[]) {
-    vertices.forEach((vertex) =>
-        addVertex(graph, vertex)
-    );
+function addVertices(graph: Graph, vertices: string[]): number {
+    return vertices.reduce((accumulator, vertexName) => {
+        const vertexAdded = addVertex(graph, vertexName);
+        return vertexAdded ? accumulator + 1 : accumulator;
+    }, 0);
 }
 
 function degree(graph: Graph): number {
@@ -57,11 +66,23 @@ function addEdge(
     secondVertex: string,
     weight: number
 ): boolean {
-    let result = false;
-
     if (firstVertex === secondVertex) {
         return false;
     }
+
+    const existsFirstVertex = graph.vertices.some((vertex) =>
+        vertex.name === firstVertex
+    );
+
+    const existsSecondVertex = graph.vertices.some((vertex) =>
+        vertex.name === secondVertex
+    );
+
+    if (!existsFirstVertex || !existsSecondVertex) {
+        return false;
+    }
+
+    let result = false;
 
     graph.vertices.forEach((vertex) => {
         if (vertex.name === firstVertex) {
@@ -114,7 +135,7 @@ function degreeSequence(graph: Graph): number[] {
 
 function bipartiteGraph(graph: Graph): boolean {
     while (true) {
-        const startVertex = graph.vertices.find((vertex) => vertex.color === undefined);
+        const startVertex = graph.vertices.find((vertex) => vertex.color === Colors.standard);
 
         if (!startVertex) break;
 
@@ -123,12 +144,12 @@ function bipartiteGraph(graph: Graph): boolean {
         while (queue.length > 0) {
             const vertex = queue.shift();
 
-            if (!vertex.color) {
+            if (vertex.color === Colors.standard) {
                 vertex.color = Colors.blue;
             }
 
             vertex.edges.forEach((edge) => {
-                if (edge.vertex.color !== undefined)
+                if (edge.vertex.color !== Colors.standard)
                     return;
 
                 edge.vertex.color = vertex.color === Colors.blue
@@ -150,7 +171,7 @@ function bipartiteGraph(graph: Graph): boolean {
 
 function printGraph(graph: Graph) {
     graph.vertices.forEach((vertex) => {
-        console.log(`${vertex.color}${vertex.name}${resetColor} => [`)
+        console.log(`${vertex.color}${vertex.name}${Colors.standard} => [`)
 
         vertex.edges.forEach((edge, edgeIndex) => {
             if (edgeIndex === 0) {
@@ -160,7 +181,7 @@ function printGraph(graph: Graph) {
                 process.stdout.write(", ");
             }
 
-            process.stdout.write(`${edge.vertex.color}${edge.vertex.name}${resetColor}`);
+            process.stdout.write(`${edge.vertex.color}${edge.vertex.name}${Colors.standard}`);
         })
 
         console.log("")
@@ -168,19 +189,72 @@ function printGraph(graph: Graph) {
     })
 }
 
+function connectedComponents(graph: Graph): Graph[] {
+    const connectedComponents: Graph[] = []
+
+    while (true) {
+        const graphComponent = createGraph();
+        const startVertex = graph.vertices.find((vertex) => vertex.color === Colors.standard);
+
+        if (!startVertex) break;
+
+        const queue = [startVertex];
+
+        while (queue.length > 0) {
+            const vertex = queue.shift();
+            graphComponent.vertices.push(vertex)
+
+            if (vertex.color === Colors.standard) {
+                vertex.color = Colors.blue;
+            }
+
+            vertex.edges.forEach((edge) => {
+                if (edge.vertex.color !== Colors.standard)
+                    return;
+
+                edge.vertex.color = vertex.color === Colors.blue
+                    ? Colors.red
+                    : Colors.blue;
+
+                queue.push(edge.vertex)
+            })
+        }
+
+        connectedComponents.push(graphComponent);
+    }
+
+    return connectedComponents;
+}
+
+function clearColors(graph: Graph) {
+    graph.vertices.forEach((vertex) =>
+        vertex.color = Colors.standard
+    );
+}
+
 function main() {
     const g = createGraph();
-    addVertices(g, ["A", "B", "C", "D", "E"])
-    addEdge(g, "A", "B", 1);
-    addEdge(g, "B", "C", 1);
-    addEdge(g, "C", "D", 1);
-    addEdge(g, "D", "E", 1);
-    addEdge(g, "E", "A", 1);
+    addVertices(g, ["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+    addEdge(g, "1", "3", 1);
+    addEdge(g, "1", "9", 1);
+    addEdge(g, "2", "3", 1);
+    addEdge(g, "4", "6", 1);
+    addEdge(g, "4", "8", 1);
+    addEdge(g, "5", "6", 1);
+    addEdge(g, "7", "8", 1);
 
-    process.stdout.write("O grafo é bipartido? ");
-    console.log(bipartiteGraph(g) ? "Sim" : " Não");
-
+    console.log("Grafo original")
     printGraph(g);
+    console.log("------------------------------");
+
+    const components = connectedComponents(g);
+
+    components.forEach((graph, key) => {
+        console.log(`Componente conexo número ${key + 1}`);
+        printGraph(graph);
+        console.log("------------------------------");
+    });
+
 }
 
 main();
