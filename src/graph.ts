@@ -1,5 +1,3 @@
-const util = require('util')
-
 interface Graph {
     vertices: Vertex[]
 }
@@ -18,7 +16,8 @@ interface Vertex {
 
 interface Edge {
     vertex: Vertex
-    weight: number;
+    weight: number
+    used?: boolean
 }
 
 function createGraph(): Graph {
@@ -132,7 +131,6 @@ function degreeSequence(graph: Graph): number[] {
         .sort();
 }
 
-
 function bipartiteGraph(graph: Graph): boolean {
     while (true) {
         const startVertex = graph.vertices.find((vertex) => vertex.color === Colors.standard);
@@ -167,7 +165,6 @@ function bipartiteGraph(graph: Graph): boolean {
         )
     );
 }
-
 
 function printGraph(graph: Graph) {
     graph.vertices.forEach((vertex) => {
@@ -232,29 +229,79 @@ function clearColors(graph: Graph) {
     );
 }
 
+function MinimalSpanningTree(graph: Graph): Graph {
+    const mst = createGraph();
+
+    const availableEdges: Edge[] = [];
+
+    for (let i = 0; i < graph.vertices.length - 1; i++) {
+        const currentVertex = graph.vertices[i];
+
+        currentVertex.edges.forEach((edge1) => {
+            if (edge1.used) return;
+
+            availableEdges.push(edge1);
+
+            const edge2 = edge1.vertex.edges.find((edge) =>
+                edge.vertex.name === currentVertex.name
+            );
+
+            edge1.used = true;
+            edge2.used = true;
+        })
+
+        availableEdges.sort((a, b) => a.weight - b.weight);
+
+        const nextVertex = availableEdges[0].vertex;
+
+        addVertex(mst, currentVertex.name);
+        addVertex(mst, nextVertex.name);
+
+        addEdge(
+            mst,
+            currentVertex.name,
+            nextVertex.name,
+            availableEdges[0].weight
+        );
+
+        availableEdges.shift();
+    }
+
+    graph.vertices.forEach((vertex) =>
+        vertex.edges.forEach((edge) =>
+            delete edge.used
+        )
+    );
+
+    return mst;
+}
+
+function totalWeight(mst: Graph): number {
+    const sumOfWeights = mst.vertices.reduce((totalSum, vertex) => {
+        return totalSum + vertex.edges.reduce((currentSum, edge) => {
+            return currentSum + edge.weight;
+        }, 0)
+    }, 0);
+
+    return sumOfWeights / 2;
+}
+
 function main() {
     const g = createGraph();
-    addVertices(g, ["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
-    addEdge(g, "1", "3", 1);
-    addEdge(g, "1", "9", 1);
-    addEdge(g, "2", "3", 1);
-    addEdge(g, "4", "6", 1);
-    addEdge(g, "4", "8", 1);
-    addEdge(g, "5", "6", 1);
-    addEdge(g, "7", "8", 1);
+    addVertices(g, ["A", "B", "C", "D", "E", "F"]);
+    addEdge(g, "A", "B", 7);
+    addEdge(g, "A", "C", 8);
+    addEdge(g, "B", "C", 3);
+    addEdge(g, "B", "D", 5);
+    addEdge(g, "C", "D", 6);
+    addEdge(g, "C", "E", 3);
+    addEdge(g, "D", "E", 2);
+    addEdge(g, "D", "F", 4);
+    addEdge(g, "E", "F", 2);
 
-    console.log("Grafo original")
-    printGraph(g);
-    console.log("------------------------------");
-
-    const components = connectedComponents(g);
-
-    components.forEach((graph, key) => {
-        console.log(`Componente conexo número ${key + 1}`);
-        printGraph(graph);
-        console.log("------------------------------");
-    });
-
+    const mst = MinimalSpanningTree(g);
+    printGraph(mst);
+    console.log(totalWeight(mst))
 }
 
 main();
