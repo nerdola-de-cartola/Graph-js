@@ -12,6 +12,7 @@ interface Vertex {
     name: string
     edges: Edge[]
     color: Colors
+    used?: boolean
 }
 
 interface Edge {
@@ -96,12 +97,12 @@ function addEdge(
 
             const target = graph.vertices.find((vertex) => vertex.name === secondVertex);
 
-            if(target) {
+            if (target) {
                 vertex.edges.push({
                     vertex: target,
                     weight
                 })
-    
+
                 result = true;
             }
         } else if (vertex.name === secondVertex) {
@@ -116,12 +117,12 @@ function addEdge(
 
             const target = graph.vertices.find((vertex) => vertex.name === firstVertex);
 
-            if(target) {
+            if (target) {
                 vertex.edges.push({
                     vertex: target,
                     weight
                 })
-    
+
                 result = true;
             }
         }
@@ -150,19 +151,19 @@ function bipartiteGraph(graph: Graph): boolean {
         while (queue.length > 0) {
             const vertex = queue.shift();
 
-            if(vertex) {
+            if (vertex) {
                 if (vertex.color === Colors.standard) {
                     vertex.color = Colors.blue;
                 }
-    
+
                 vertex.edges.forEach((edge) => {
                     if (edge.vertex.color !== Colors.standard)
                         return;
-    
+
                     edge.vertex.color = vertex.color === Colors.blue
                         ? Colors.red
                         : Colors.blue;
-    
+
                     queue.push(edge.vertex)
                 })
             }
@@ -210,21 +211,21 @@ function connectedComponents(graph: Graph): Graph[] {
         while (queue.length > 0) {
             const vertex = queue.shift();
 
-            if(vertex) {
+            if (vertex) {
                 graphComponent.vertices.push(vertex)
-    
+
                 if (vertex.color === Colors.standard) {
                     vertex.color = Colors.blue;
                 }
-    
+
                 vertex.edges.forEach((edge) => {
                     if (edge.vertex.color !== Colors.standard)
                         return;
-    
+
                     edge.vertex.color = vertex.color === Colors.blue
                         ? Colors.red
                         : Colors.blue;
-    
+
                     queue.push(edge.vertex)
                 })
             }
@@ -242,55 +243,78 @@ function clearColors(graph: Graph) {
     );
 }
 
+interface ExplicityEdge {
+    vertex1: Vertex
+    vertex2: Vertex
+    weight: number
+}
+
 function MinimalSpanningTree(graph: Graph): Graph {
     const mst = createGraph();
 
-    const availableEdges: Edge[] = [];
+    const availableEdges: ExplicityEdge[] = [];
 
-    for (let i = 0; i < graph.vertices.length - 1; i++) {
-        const currentVertex = graph.vertices[i];
+    const findNextVertices = () => {
+        while(availableEdges.length) {
+            const explicityEdge = availableEdges[0];
 
-        currentVertex.edges.forEach((edge1) => {
-            if (edge1.used) return;
-
-            availableEdges.push(edge1);
-
-            const edge2 = edge1.vertex.edges.find((edge) =>
-                edge.vertex.name === currentVertex.name
-            );
-
-            edge1.used = true;
-            if(edge2) {
-                edge2.used = true;
-            }
-        })
-
-        availableEdges.sort((a, b) => a.weight - b.weight);
-
-        while(availableEdges[0].vertex.name === currentVertex.name) {
             availableEdges.shift();
+
+            if(!explicityEdge.vertex1.used || !explicityEdge.vertex2.used) {
+                return explicityEdge;
+            }
         }
 
-        const nextVertex = availableEdges[0].vertex;
+        throw new Error("Could not find next vertices");
+    }
 
-        addVertex(mst, currentVertex.name);
-        addVertex(mst, nextVertex.name);
+    let currentVertex = graph.vertices[0];
+    currentVertex.used = true;
+    for (let i = 0; i < graph.vertices.length - 1; i++) {
+        currentVertex.edges.forEach((edge) => {
+
+            if(edge.used) return;
+
+            availableEdges.push({
+                vertex1: currentVertex,
+                vertex2: edge.vertex,
+                weight: edge.weight
+            })
+
+            const edge2 = edge.vertex.edges.find((edge) => edge.vertex.name === currentVertex.name);
+            
+            if(!edge2) throw new Error("Aresta inexistente");
+            
+            edge.used = true;
+            edge2.used = true;
+        })
+
+        availableEdges.sort((edge1, edge2) => edge1.weight - edge2.weight);
+
+        const {vertex1, vertex2, weight} = findNextVertices();
+
+        addVertex(mst, vertex1.name);
+        addVertex(mst, vertex2.name);
 
         addEdge(
             mst,
-            currentVertex.name,
-            nextVertex.name,
-            availableEdges[0].weight
+            vertex1.name,
+            vertex2.name,
+            weight
         );
 
-        availableEdges.shift();
+        currentVertex = vertex1.used ? vertex2 : vertex1;
+
+        vertex1.used = true;
+        vertex2.used = true;
+
     }
 
-    graph.vertices.forEach((vertex) =>
-        vertex.edges.forEach((edge) =>
-            delete edge.used
-        )
-    );
+    graph.vertices.forEach((vertex) => {
+        vertex.edges.forEach((edge) => {
+            delete edge.used;
+        })
+    })
 
     return mst;
 }
@@ -298,8 +322,8 @@ function MinimalSpanningTree(graph: Graph): Graph {
 function totalWeight(graph: Graph): number {
     let sum = 0
 
-    for(let v = 0; v < graph.vertices.length; v++) {
-        for(let e = 0; e < graph.vertices[v].edges.length; e++) {
+    for (let v = 0; v < graph.vertices.length; v++) {
+        for (let e = 0; e < graph.vertices[v].edges.length; e++) {
             sum += graph.vertices[v].edges[e].weight;
         }
     }
