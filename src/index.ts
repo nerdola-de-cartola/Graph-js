@@ -1,3 +1,5 @@
+import { error } from "console"
+
 interface Graph {
     vertices: Vertex[]
 }
@@ -13,6 +15,7 @@ interface Vertex {
     edges: Edge[]
     color: Colors
     used?: boolean
+    component?: Vertex;
 }
 
 interface Edge {
@@ -249,18 +252,117 @@ interface ExplicityEdge {
     weight: number
 }
 
-function MinimalSpanningTree(graph: Graph): Graph {
+function MinimalSpanningTree(graph: Graph, algorithm: (Graph: Graph) => Graph) {
+    return algorithm(graph);
+}
+
+function Kruskal(graph: Graph): Graph {
+    const mst = createGraph();
+
+    const availableEdges: ExplicityEdge[] = [];    
+
+    graph.vertices.forEach((vertex) => {
+        addVertex(mst, vertex.name)
+
+        vertex.edges.forEach((edge) => {
+
+            if (edge.used) return;
+
+            vertex.component = vertex;
+            edge.vertex.component = edge.vertex;
+
+            availableEdges.push({
+                vertex1: vertex,
+                vertex2: edge.vertex,
+                weight: edge.weight
+            })
+
+            const edge2 = edge.vertex.edges.find((edge) => edge.vertex.name === vertex.name);
+
+            if (!edge2) throw new Error("Aresta inexistente");
+
+            edge.used = true;
+            edge2.used = true;
+        })
+    })
+
+    availableEdges.sort((edge1, edge2) => edge1.weight - edge2.weight);
+
+    const findNextVertices = () => {
+        while (availableEdges.length) {
+            const explicityEdge = availableEdges[0];
+
+            availableEdges.shift();
+
+            if(!explicityEdge.vertex1.component || !explicityEdge.vertex2.component) {
+                throw new Error("Could not find next vertices");
+            }
+
+            if (explicityEdge.vertex1.component.name !== explicityEdge.vertex2.component.name) {
+                return explicityEdge;
+            }
+        }
+
+        throw new Error("Could not find next vertices");
+    }
+
+    const joinComponents = (
+        component1: Vertex | undefined,
+        component2: Vertex | undefined
+    ) => {
+        if(!component1 || ! component2) {
+            throw new Error("Could not join components")
+        }
+
+        availableEdges.forEach(({ vertex1, vertex2 }) => {
+            if(!vertex1.component || !vertex2.component) {
+                throw new Error("Could not join components")
+            }
+
+            if(vertex1.component.name === component2.name) {
+                vertex1.component = component1
+            }
+
+            if(vertex2.component.name === component2.name) {
+                vertex2.component = component1
+            }
+        })
+    }
+
+    for (let i = 0; i < graph.vertices.length - 1; i++) {
+        const { vertex1, vertex2, weight } = findNextVertices();
+
+        addEdge(
+            mst,
+            vertex1.name,
+            vertex2.name,
+            weight
+        );
+
+        joinComponents(vertex1.component, vertex2.component)
+    }
+
+    graph.vertices.forEach((vertex) => {
+        vertex.edges.forEach((edge) => {
+            delete edge.used;
+        })
+    })
+
+    return mst;
+}
+
+function Prim(graph: Graph): Graph {
     const mst = createGraph();
 
     const availableEdges: ExplicityEdge[] = [];
 
     const findNextVertices = () => {
-        while(availableEdges.length) {
+        while (availableEdges.length) {
             const explicityEdge = availableEdges[0];
 
             availableEdges.shift();
 
-            if(!explicityEdge.vertex1.used || !explicityEdge.vertex2.used) {
+            if (!explicityEdge.vertex1.used || !explicityEdge.vertex2.used) {
                 return explicityEdge;
             }
         }
@@ -273,7 +375,7 @@ function MinimalSpanningTree(graph: Graph): Graph {
     for (let i = 0; i < graph.vertices.length - 1; i++) {
         currentVertex.edges.forEach((edge) => {
 
-            if(edge.used) return;
+            if (edge.used) return;
 
             availableEdges.push({
                 vertex1: currentVertex,
@@ -282,16 +384,16 @@ function MinimalSpanningTree(graph: Graph): Graph {
             })
 
             const edge2 = edge.vertex.edges.find((edge) => edge.vertex.name === currentVertex.name);
-            
-            if(!edge2) throw new Error("Aresta inexistente");
-            
+
+            if (!edge2) throw new Error("Aresta inexistente");
+
             edge.used = true;
             edge2.used = true;
         })
 
         availableEdges.sort((edge1, edge2) => edge1.weight - edge2.weight);
 
-        const {vertex1, vertex2, weight} = findNextVertices();
+        const { vertex1, vertex2, weight } = findNextVertices();
 
         addVertex(mst, vertex1.name);
         addVertex(mst, vertex2.name);
@@ -311,6 +413,8 @@ function MinimalSpanningTree(graph: Graph): Graph {
     }
 
     graph.vertices.forEach((vertex) => {
+        delete vertex.used;
+
         vertex.edges.forEach((edge) => {
             delete edge.used;
         })
@@ -337,23 +441,30 @@ function main() {
     addEdge(g, "A", "B", 1);
     addEdge(g, "A", "C", 3);
     addEdge(g, "A", "D", 1);
-    addEdge(g, "A", "E", 2);
+    addEdge(g, "A", "E", 3);
     addEdge(g, "A", "F", 3);
     addEdge(g, "B", "C", 4);
     addEdge(g, "B", "D", 1);
     addEdge(g, "B", "E", 1);
     addEdge(g, "B", "F", 3);
     addEdge(g, "C", "D", 4);
-    addEdge(g, "C", "E", 3);
+    addEdge(g, "C", "E", -1);
     addEdge(g, "C", "F", 5);
     addEdge(g, "D", "E", 1);
-    addEdge(g, "D", "F", 2);
+    addEdge(g, "D", "F", 3);
     addEdge(g, "E", "F", 1);
 
-    const mst = MinimalSpanningTree(g);
-    printGraph(mst);
-    // console.log(mst)
-    console.log(totalWeight(mst))
+    console.log("---------------------------");
+    console.log("Prim");
+    const mst1 = MinimalSpanningTree(g, Prim);
+    printGraph(mst1);
+    console.log(totalWeight(mst1))
+    console.log("---------------------------");
+    console.log("Kruskal");
+    const mst2 = MinimalSpanningTree(g, Kruskal);
+    printGraph(mst2);
+    console.log(totalWeight(mst2))
+    console.log("---------------------------");
 }
 
 main();
