@@ -94,12 +94,16 @@ function addEdge(
                 return;
             }
 
-            vertex.edges.push({
-                vertex: graph.vertices.find((vertex) => vertex.name === secondVertex),
-                weight
-            })
+            const target = graph.vertices.find((vertex) => vertex.name === secondVertex);
 
-            result = true;
+            if(target) {
+                vertex.edges.push({
+                    vertex: target,
+                    weight
+                })
+    
+                result = true;
+            }
         } else if (vertex.name === secondVertex) {
             const repeatedEdge = vertex.edges.some((edge) =>
                 edge.vertex.name === firstVertex
@@ -110,12 +114,16 @@ function addEdge(
                 return;
             }
 
-            vertex.edges.push({
-                vertex: graph.vertices.find((vertex) => vertex.name === firstVertex),
-                weight
-            })
+            const target = graph.vertices.find((vertex) => vertex.name === firstVertex);
 
-            result = true;
+            if(target) {
+                vertex.edges.push({
+                    vertex: target,
+                    weight
+                })
+    
+                result = true;
+            }
         }
     })
 
@@ -125,7 +133,7 @@ function addEdge(
 function degreeSequence(graph: Graph): number[] {
     return graph
         .vertices
-        .reduce((accumulator, vertex) =>
+        .reduce((accumulator: number[], vertex) =>
             [...accumulator, vertex.edges.length], []
         )
         .sort();
@@ -142,20 +150,22 @@ function bipartiteGraph(graph: Graph): boolean {
         while (queue.length > 0) {
             const vertex = queue.shift();
 
-            if (vertex.color === Colors.standard) {
-                vertex.color = Colors.blue;
+            if(vertex) {
+                if (vertex.color === Colors.standard) {
+                    vertex.color = Colors.blue;
+                }
+    
+                vertex.edges.forEach((edge) => {
+                    if (edge.vertex.color !== Colors.standard)
+                        return;
+    
+                    edge.vertex.color = vertex.color === Colors.blue
+                        ? Colors.red
+                        : Colors.blue;
+    
+                    queue.push(edge.vertex)
+                })
             }
-
-            vertex.edges.forEach((edge) => {
-                if (edge.vertex.color !== Colors.standard)
-                    return;
-
-                edge.vertex.color = vertex.color === Colors.blue
-                    ? Colors.red
-                    : Colors.blue;
-
-                queue.push(edge.vertex)
-            })
         }
     }
 
@@ -178,7 +188,7 @@ function printGraph(graph: Graph) {
                 process.stdout.write(", ");
             }
 
-            process.stdout.write(`${edge.vertex.color}${edge.vertex.name}${Colors.standard}`);
+            process.stdout.write(`${edge.vertex.color}${edge.vertex.name}${edge.weight}${Colors.standard}`);
         })
 
         console.log("")
@@ -199,22 +209,25 @@ function connectedComponents(graph: Graph): Graph[] {
 
         while (queue.length > 0) {
             const vertex = queue.shift();
-            graphComponent.vertices.push(vertex)
 
-            if (vertex.color === Colors.standard) {
-                vertex.color = Colors.blue;
+            if(vertex) {
+                graphComponent.vertices.push(vertex)
+    
+                if (vertex.color === Colors.standard) {
+                    vertex.color = Colors.blue;
+                }
+    
+                vertex.edges.forEach((edge) => {
+                    if (edge.vertex.color !== Colors.standard)
+                        return;
+    
+                    edge.vertex.color = vertex.color === Colors.blue
+                        ? Colors.red
+                        : Colors.blue;
+    
+                    queue.push(edge.vertex)
+                })
             }
-
-            vertex.edges.forEach((edge) => {
-                if (edge.vertex.color !== Colors.standard)
-                    return;
-
-                edge.vertex.color = vertex.color === Colors.blue
-                    ? Colors.red
-                    : Colors.blue;
-
-                queue.push(edge.vertex)
-            })
         }
 
         connectedComponents.push(graphComponent);
@@ -247,10 +260,16 @@ function MinimalSpanningTree(graph: Graph): Graph {
             );
 
             edge1.used = true;
-            edge2.used = true;
+            if(edge2) {
+                edge2.used = true;
+            }
         })
 
         availableEdges.sort((a, b) => a.weight - b.weight);
+
+        while(availableEdges[0].vertex.name === currentVertex.name) {
+            availableEdges.shift();
+        }
 
         const nextVertex = availableEdges[0].vertex;
 
@@ -276,31 +295,40 @@ function MinimalSpanningTree(graph: Graph): Graph {
     return mst;
 }
 
-function totalWeight(mst: Graph): number {
-    const sumOfWeights = mst.vertices.reduce((totalSum, vertex) => {
-        return totalSum + vertex.edges.reduce((currentSum, edge) => {
-            return currentSum + edge.weight;
-        }, 0)
-    }, 0);
+function totalWeight(graph: Graph): number {
+    let sum = 0
 
-    return sumOfWeights / 2;
+    for(let v = 0; v < graph.vertices.length; v++) {
+        for(let e = 0; e < graph.vertices[v].edges.length; e++) {
+            sum += graph.vertices[v].edges[e].weight;
+        }
+    }
+
+    return sum / 2;
 }
 
 function main() {
     const g = createGraph();
     addVertices(g, ["A", "B", "C", "D", "E", "F"]);
-    addEdge(g, "A", "B", 7);
-    addEdge(g, "A", "C", 8);
-    addEdge(g, "B", "C", 3);
-    addEdge(g, "B", "D", 5);
-    addEdge(g, "C", "D", 6);
+    addEdge(g, "A", "B", 1);
+    addEdge(g, "A", "C", 3);
+    addEdge(g, "A", "D", 1);
+    addEdge(g, "A", "E", 2);
+    addEdge(g, "A", "F", 3);
+    addEdge(g, "B", "C", 4);
+    addEdge(g, "B", "D", 1);
+    addEdge(g, "B", "E", 1);
+    addEdge(g, "B", "F", 3);
+    addEdge(g, "C", "D", 4);
     addEdge(g, "C", "E", 3);
-    addEdge(g, "D", "E", 2);
-    addEdge(g, "D", "F", 4);
-    addEdge(g, "E", "F", 2);
+    addEdge(g, "C", "F", 5);
+    addEdge(g, "D", "E", 1);
+    addEdge(g, "D", "F", 2);
+    addEdge(g, "E", "F", 1);
 
     const mst = MinimalSpanningTree(g);
     printGraph(mst);
+    // console.log(mst)
     console.log(totalWeight(mst))
 }
 
