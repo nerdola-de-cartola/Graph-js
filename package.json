@@ -1,13 +1,13 @@
 {
-  "name": "debug-test",
+  "name": "graph-ts",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
     "start": "ts-node src/index.ts"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Matheus Lucas - Nerdola de Cartola",
+  "license": "MIT",
   "dependencies": {
     "typescript": "^5.2.2"
   },
