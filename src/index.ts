@@ -1,3 +1,5 @@
+import { verify } from "crypto"
+
 interface Graph {
     vertices: Vertex[]
 }
@@ -13,7 +15,9 @@ interface Vertex {
     edges: Edge[]
     color: Colors
     used?: boolean
-    component?: Vertex;
+    component?: Vertex
+    distance?: number
+    previousVertex?: Vertex | null
 }
 
 interface Edge {
@@ -178,24 +182,26 @@ function bipartiteGraph(graph: Graph): boolean {
     );
 }
 
-function printGraph(graph: Graph) {
-    graph.vertices.forEach((vertex) => {
-        console.log(`${vertex.color}${vertex.name}${Colors.standard} => [`)
+function printVertex(vertex: Vertex) {
+    console.log(`${vertex.color}${vertex.name}${Colors.standard} => [`)
 
-        vertex.edges.forEach((edge, edgeIndex) => {
-            if (edgeIndex === 0) {
-                process.stdout.write("   ");
-            }
-            else if (edgeIndex < vertex.edges.length) {
-                process.stdout.write(", ");
-            }
+    vertex.edges.forEach((edge, edgeIndex) => {
+        if (edgeIndex === 0) {
+            process.stdout.write("   ");
+        }
+        else if (edgeIndex < vertex.edges.length) {
+            process.stdout.write(", ");
+        }
 
-            process.stdout.write(`${edge.vertex.color}${edge.vertex.name}${edge.weight}${Colors.standard}`);
-        })
-
-        console.log("")
-        console.log("]")
+        process.stdout.write(`${edge.vertex.color}${edge.vertex.name}(${edge.weight})${Colors.standard}`);
     })
+
+    console.log("")
+    console.log("]")
+}
+
+function printGraph(graph: Graph) {
+    graph.vertices.forEach((vertex) => printVertex(vertex))
 }
 
 function connectedComponents(graph: Graph): Graph[] {
@@ -257,7 +263,7 @@ function MinimalSpanningTree(graph: Graph, algorithm: (Graph: Graph) => Graph) {
 function Kruskal(graph: Graph): Graph {
     const mst = createGraph();
 
-    const availableEdges: ExplicityEdge[] = [];    
+    const availableEdges: ExplicityEdge[] = [];
 
     graph.vertices.forEach((vertex) => {
         addVertex(mst, vertex.name)
@@ -292,7 +298,7 @@ function Kruskal(graph: Graph): Graph {
 
             availableEdges.shift();
 
-            if(!explicityEdge.vertex1.component || !explicityEdge.vertex2.component) {
+            if (!explicityEdge.vertex1.component || !explicityEdge.vertex2.component) {
                 throw new Error("Could not find next vertices");
             }
 
@@ -308,20 +314,20 @@ function Kruskal(graph: Graph): Graph {
         component1: Vertex | undefined,
         component2: Vertex | undefined
     ) => {
-        if(!component1 || ! component2) {
+        if (!component1 || !component2) {
             throw new Error("Could not join components")
         }
 
         availableEdges.forEach(({ vertex1, vertex2 }) => {
-            if(!vertex1.component || !vertex2.component) {
+            if (!vertex1.component || !vertex2.component) {
                 throw new Error("Could not join components")
             }
 
-            if(vertex1.component.name === component2.name) {
+            if (vertex1.component.name === component2.name) {
                 vertex1.component = component1
             }
 
-            if(vertex2.component.name === component2.name) {
+            if (vertex2.component.name === component2.name) {
                 vertex2.component = component1
             }
         })
@@ -408,6 +414,10 @@ function Prim(graph: Graph): Graph {
         vertex1.used = true;
         vertex2.used = true;
 
+        console.log("---------------------------");
+        printGraph(mst);
+        console.log("---------------------------");
+
     }
 
     graph.vertices.forEach((vertex) => {
@@ -433,36 +443,193 @@ function totalWeight(graph: Graph): number {
     return sum / 2;
 }
 
+function dfs(vertex: Vertex, name: string): Vertex | undefined {
+    vertex.color = Colors.blue
+
+    if (vertex.name === name) {
+        return vertex;
+    }
+
+    const length = vertex.edges.length
+
+    for (let index = 0; index < length; index++) {
+        const nextVertex = vertex.edges[index].vertex;
+        if (nextVertex.color !== Colors.blue) {
+            return dfs(nextVertex, name);
+        }
+    }
+
+    return;
+}
+
+function bfs(vertex: Vertex, name: string, queue: Vertex[]): Vertex | undefined {
+    if (vertex.name === name) {
+        return vertex;
+    }
+
+    vertex.color = Colors.blue;
+
+    const length = vertex.edges.length
+
+    for (let index = 0; index < length; index++) {
+        const searchVertex = vertex.edges[index].vertex;
+
+        if (searchVertex.name === name) {
+            return searchVertex;
+        }
+
+        if (searchVertex.color === Colors.standard) {
+            queue.push(searchVertex);
+            searchVertex.color = Colors.red;
+        }
+    }
+
+    const nextVertex = queue.shift();
+
+    return nextVertex ? bfs(nextVertex, name, queue) : undefined;
+}
+
+function depthFirstSearch(graph: Graph, name: string, keepColors = false): Vertex | undefined {
+    const start = graph.vertices[0];
+
+    clearColors(graph);
+    const vertex = dfs(start, name);
+
+    if (!keepColors) {
+        clearColors(graph);
+    }
+
+    return vertex;
+}
+
+function breadthFirstSearch(graph: Graph, name: string, keepColors = false): Vertex | undefined {
+    const start = graph.vertices[0];
+
+    clearColors(graph);
+    const vertex = bfs(start, name, []);
+
+    if (!keepColors) {
+        clearColors(graph);
+    }
+
+    return vertex;
+}
+
+function dijkstra(graph: Graph, startVertex: Vertex) {
+    graph.vertices.forEach((vertex) => {
+        vertex.distance = Infinity;
+        vertex.previousVertex = null;
+    })
+
+    startVertex.distance = 0;
+
+    clearColors(graph);
+
+    const queue: Vertex[] = [startVertex];
+
+    while (true) {
+        const vertex = queue.shift();
+
+        // console.log("---------------------------")
+        // printGraph(graph);
+        // console.log("---------------------------")
+        
+        if(!vertex) break;
+
+        vertex.color = Colors.blue; 
+
+        vertex.edges.forEach(edge => {
+            const nextVertex = edge.vertex;
+
+            if(nextVertex.color === Colors.blue) return;
+
+            if(vertex.distance === undefined || nextVertex.distance === undefined) {
+                throw new Error("Could not find distance");
+            }
+
+            if(nextVertex.distance > vertex.distance + edge.weight) {
+                nextVertex.distance = vertex.distance + edge.weight
+                nextVertex.previousVertex = vertex;
+            }
+
+            if(nextVertex.color === Colors.standard) {
+                nextVertex.color = Colors.red;
+                queue.push(nextVertex);
+            }
+        });
+    }
+}
+
+function printPath(startVertex: Vertex, targetVertex: Vertex) {
+    const stack = [];
+
+    for(let vertex = targetVertex; vertex.previousVertex; vertex = vertex.previousVertex) {
+        if(vertex.distance === undefined) {
+            throw new Error("Could not find distance to previous vertex");
+        }
+
+        stack.unshift(vertex)
+        process.stdout.write(``);
+    }
+
+    if(!stack.length) return;
+
+    process.stdout.write(`${startVertex.name} => `);
+
+    for(let vertex = stack.shift(); vertex; vertex = stack.shift()) {
+        process.stdout.write(`${vertex.name}`);
+
+        if(stack.length) {
+            process.stdout.write(` => `);
+        }
+    }
+
+    console.log("");
+    console.log(`Total cost: ${targetVertex.distance}`);
+}
+
+function cleanDistances(graph: Graph) {
+    graph.vertices.forEach((vertex) => {
+        delete vertex.distance;
+        delete vertex.previousVertex;
+    });
+}
+
 function main() {
     const g = createGraph();
-    addVertices(g, ["A", "B", "C", "D", "E", "F"]);
-    addEdge(g, "A", "B", 1);
-    addEdge(g, "A", "C", 3);
-    addEdge(g, "A", "D", 1);
-    addEdge(g, "A", "E", 3);
-    addEdge(g, "A", "F", 3);
-    addEdge(g, "B", "C", 4);
-    addEdge(g, "B", "D", 1);
+    addVertices(g, ["A", "B", "C", "D", "E", "F", "G", "H"]);
+    addEdge(g, "A", "B", 2);
+    addEdge(g, "A", "C", 2);
+    addEdge(g, "A", "D", 0);
     addEdge(g, "B", "E", 1);
-    addEdge(g, "B", "F", 3);
-    addEdge(g, "C", "D", 4);
-    addEdge(g, "C", "E", -1);
-    addEdge(g, "C", "F", 5);
-    addEdge(g, "D", "E", 1);
-    addEdge(g, "D", "F", 3);
+    addEdge(g, "B", "F", 0);
+    addEdge(g, "B", "G", 3);
+    addEdge(g, "B", "H", 0);
+    addEdge(g, "C", "D", 2);
+    addEdge(g, "C", "G", 1);
+    addEdge(g, "D", "E", 0);
+    addEdge(g, "D", "G", 1);
+    addEdge(g, "D", "H", 4);
     addEdge(g, "E", "F", 1);
+    addEdge(g, "E", "G", 0);
+    addEdge(g, "E", "H", 3);
+    addEdge(g, "F", "G", 4);
 
-    console.log("---------------------------");
-    console.log("Prim");
-    const mst1 = MinimalSpanningTree(g, Prim);
-    printGraph(mst1);
-    console.log(totalWeight(mst1))
-    console.log("---------------------------");
-    console.log("Kruskal");
-    const mst2 = MinimalSpanningTree(g, Kruskal);
-    printGraph(mst2);
-    console.log(totalWeight(mst2))
-    console.log("---------------------------");
+    const search = "H"
+    const start = "E"
+
+    const startVertex = breadthFirstSearch(g, start);
+    
+    if(startVertex) {
+        dijkstra(g, startVertex);
+        
+        const searchVertex = breadthFirstSearch(g, search);
+
+        if(searchVertex) {
+            printPath(startVertex, searchVertex);
+
+        }
+    }
 }
 
 main();
